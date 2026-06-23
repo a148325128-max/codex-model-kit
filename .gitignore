@@ -12,3 +12,4 @@ release/
 *.key
 *.pem
 auth.json
+providers.local.json

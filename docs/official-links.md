@@ -1,4 +1,4 @@
-# 官方链接与准确说法
+# 官方链接
 
 核对日期：2026-06-23。
 
@@ -8,7 +8,7 @@ Codex 配置参考：
 
 https://developers.openai.com/codex/config-reference
 
-重点展示这些关键词：
+相关配置项：
 
 ```text
 model_provider
@@ -33,81 +33,27 @@ https://developers.openai.com/codex/pricing
 
 https://help.openai.com/en/articles/20001106-codex-rate-card
 
-准确说法：
-
-```text
-Codex 官方配置支持自定义 model provider。
-这个项目把第三方 API 地址、环境变量名和模型配置档写进 Codex 本地配置。
-```
-
-## MiniMax
+## 内置 provider 参考
 
 MiniMax Codex 配置说明：
 
 https://platform.minimax.io/docs/token-plan/codex
 
-录屏建议：
-
-```text
-MiniMax 最适合先演示，因为它有官方 Codex 配置说明。
-```
-
-## DeepSeek
-
 DeepSeek API 文档：
 
 https://api-docs.deepseek.com/
-
-DeepSeek base URL：
-
-```text
-https://api.deepseek.com
-```
-
-注意：
-
-```text
-DeepSeek OpenAI-compatible 接口通常先看 chat/completions。
-Codex 自定义 provider 是否能直接跑，要用 doctor/exec 实测 Responses。
-```
-
-## 智谱 GLM
 
 智谱 Coding Plan / 其他工具配置：
 
 https://docs.bigmodel.cn/cn/coding-plan/tool/others
 
-准确拼写：
-
-```text
-GLM，不是 GML。
-```
-
-当前脚本默认：
-
-```text
-base_url = "https://open.bigmodel.cn/api/coding/paas/v4"
-model = "glm-5.2"
-```
-
-## 小米 MiMo
-
-MiMo 首次 API 调用：
+小米 MiMo 首次 API 调用：
 
 https://mimo.mi.com/docs/en-US/quick-start/summary/first-api-call
 
-MiMo OpenAI API 兼容说明：
+小米 MiMo OpenAI API 兼容说明：
 
 https://mimo.mi.com/docs/en-US/api/chat/openai-api
-
-注意：
-
-```text
-MiMo 官方文档主要展示 chat/completions。
-Codex 需要 Responses 兼容，所以要实测。
-```
-
-## 火山方舟豆包
 
 火山方舟 OpenAI 兼容调用：
 
@@ -117,36 +63,12 @@ https://www.volcengine.com/docs/82379/1330626
 
 https://www.volcengine.com/docs/82379/1523520
 
-当前脚本默认：
-
-```text
-base_url = "https://ark.cn-beijing.volces.com/api/v3"
-model = "doubao-seed-1-6-250615"
-```
-
-注意：
-
-```text
-火山方舟模型名可能跟地域、接入点、开通服务有关。
-如果报模型不存在，请把 ~/.codex/ark.config.toml 里的 model 改成控制台实际值。
-```
-
-## 阿里百炼
-
-百炼 DashScope OpenAI 兼容模式：
+阿里百炼 DashScope OpenAI 兼容模式：
 
 https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope
 
-当前脚本默认：
+## 兼容性说明
 
-```text
-base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-model = "qwen-plus"
-```
+OpenAI-compatible 并不必然等于可直接作为 Codex 自定义 provider 使用。
 
-注意：
-
-```text
-百炼 OpenAI 兼容模式主要是 chat/completions。
-Codex 自定义 provider 直接运行时，仍然要验证 Responses 兼容性。
-```
+Codex 自定义 provider 需要兼容 Responses 协议。如果某个第三方平台或中转站只兼容 `chat/completions`，可能需要使用支持 Responses 的网关，或增加协议转换层。

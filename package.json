@@ -1,7 +1,7 @@
 {
   "name": "codex-model-kit",
   "version": "0.1.0",
-  "description": "中文 Codex 多模型配置工具包：用脚本和弹窗帮 Codex 配置第三方 API 模型配置档。",
+  "description": "Codex multi-provider setup kit for built-in presets, custom OpenAI-compatible APIs, and relay endpoints.",
   "main": "src/codex-models.js",
   "type": "commonjs",
   "scripts": {
@@ -27,7 +27,9 @@
     "qwen",
     "openai-compatible",
     "responses-api",
-    "byok"
+    "byok",
+    "relay",
+    "gateway"
   ],
   "author": "",
   "license": "MIT"

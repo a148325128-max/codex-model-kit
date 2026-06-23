@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 
 const { spawnSync } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
 const { Writable } = require("node:stream");
 const {
   CODEX_MODEL_PROVIDERS,
+  buildProviderRegistry,
   installCodexModels,
 } = require("../src/codex-models");
 
@@ -18,13 +21,17 @@ function printHelp() {
 常用命令：
   npm run setup:dry-run   只预览，不修改文件
   npm run setup           写入 Codex 多模型配置档
-  npm run setup:gui       用 macOS 弹窗输入 Key，适合录屏
+  npm run setup:gui       用 macOS 弹窗输入 Key
   npm run setup:keys      用终端隐藏输入 Key
 
 参数：
   --models ${PROVIDER_LIST}
   --providers ${PROVIDER_LIST}
       要安装的模型配置档。默认全部安装。--models 和 --providers 等价。
+
+  --provider-file PATH
+      读取自定义模型提供方配置。可重复传入。
+      当前目录存在 providers.local.json 时会自动读取。
 
   --codex-home PATH
       指定 Codex 配置目录。默认 ~/.codex。
@@ -39,13 +46,13 @@ function printHelp() {
       在终端里隐藏输入 API Key，并写入 macOS launchctl 环境变量。
 
   --set-keys-gui
-      用 macOS 系统弹窗输入 API Key。更适合“小白化智能体演示”。
+      用 macOS 系统弹窗输入 API Key。
 
   --restart-codex
       配置后重启 Codex App。仅 macOS 可用，默认不自动重启。
 
   --list
-      列出内置模型预设。
+      列出可用模型配置档。
 
   -h, --help
       显示帮助。
@@ -57,9 +64,12 @@ function printHelp() {
 `);
 }
 
-function printProviderList() {
-  console.log("内置模型预设：");
-  for (const [id, provider] of Object.entries(CODEX_MODEL_PROVIDERS)) {
+function printProviderList(providerFiles = []) {
+  const registry = buildProviderRegistry({
+    providerFiles,
+  });
+  console.log("可用模型配置档：");
+  for (const [id, provider] of Object.entries(registry)) {
     console.log(`- ${id}: ${provider.label}`);
     console.log(`  默认模型：${provider.model}`);
     console.log(`  环境变量：${provider.envKey}`);
@@ -73,6 +83,15 @@ function splitList(value) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function defaultProviderFiles(files = []) {
+  const result = [...files];
+  const localFile = path.resolve(process.cwd(), "providers.local.json");
+  if (fs.existsSync(localFile) && !result.includes(localFile)) {
+    result.push(localFile);
+  }
+  return result;
 }
 
 function parseArgs(argv) {
@@ -105,6 +124,10 @@ function parseArgs(argv) {
       options.defaultModel = argv[++index];
     } else if (arg.startsWith("--default-model=")) {
       options.defaultModel = arg.slice("--default-model=".length);
+    } else if (arg === "--provider-file") {
+      options.providerFiles = [...(options.providerFiles || []), path.resolve(argv[++index])];
+    } else if (arg.startsWith("--provider-file=")) {
+      options.providerFiles = [...(options.providerFiles || []), path.resolve(arg.slice("--provider-file=".length))];
     } else {
       throw new Error(`未知参数：${arg}`);
     }
@@ -238,18 +261,20 @@ function printNextSteps(result) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  options.providerFiles = defaultProviderFiles(options.providerFiles || []);
   if (options.help) {
     printHelp();
     return;
   }
   if (options.list) {
-    printProviderList();
+    printProviderList(options.providerFiles);
     return;
   }
 
   const result = installCodexModels({
     codexHome: options.codexHome,
     providers: options.providers,
+    providerFiles: options.providerFiles,
     defaultModel: options.defaultModel,
     dryRun: options.dryRun,
   });
@@ -257,6 +282,7 @@ async function main() {
   console.log(options.dryRun ? "预览完成。计划写入这些 Codex 配置：" : "Codex 多模型配置已完成：");
   console.log(`- Codex 配置目录：${result.codexHome}`);
   console.log(`- 主配置文件：${result.configPath}${result.changedConfig ? "" : "（已经是最新）"}`);
+  if (options.providerFiles.length > 0) console.log(`- 自定义配置源：${options.providerFiles.join(", ")}`);
   if (result.backupPath) console.log(`- 旧配置备份：${result.backupPath}`);
   for (const item of result.modelConfigs) {
     console.log(`- ${item.provider.label} 模型配置档：${item.path}`);

@@ -1,0 +1,20 @@
+{
+  "providers": {
+    "relay": {
+      "label": "OpenAI-compatible Relay",
+      "baseUrl": "https://your-relay.example.com/v1",
+      "envKey": "RELAY_API_KEY",
+      "model": "your-model-name",
+      "contextWindow": 128000,
+      "status": "自定义 OpenAI-compatible 或中转站配置。"
+    },
+    "custom": {
+      "label": "Custom Provider",
+      "baseUrl": "https://api.example.com/v1",
+      "envKey": "CUSTOM_API_KEY",
+      "model": "custom-model",
+      "contextWindow": 128000,
+      "status": "可替换为任意兼容 Codex Responses 协议的第三方模型。"
+    }
+  }
+}

@@ -11,7 +11,7 @@ const CODEX_MODEL_PROVIDERS = {
     envKey: "MINIMAX_API_KEY",
     model: "MiniMax-M3",
     contextWindow: DEFAULT_CONTEXT_WINDOW,
-    status: "推荐先演示，MiniMax 官方有 Codex 配置说明。",
+    status: "内置预设。",
   },
   deepseek: {
     label: "DeepSeek",
@@ -19,7 +19,7 @@ const CODEX_MODEL_PROVIDERS = {
     envKey: "DEEPSEEK_API_KEY",
     model: "deepseek-v4-flash",
     contextWindow: DEFAULT_CONTEXT_WINDOW,
-    status: "需要用 doctor/exec 实测 Responses API 兼容性。",
+    status: "OpenAI-compatible 接口，需确认 Responses API 兼容性。",
   },
   zhipu: {
     label: "智谱 GLM",
@@ -27,7 +27,7 @@ const CODEX_MODEL_PROVIDERS = {
     envKey: "ZHIPU_API_KEY",
     model: "glm-5.2",
     contextWindow: 1000000,
-    status: "智谱写 GLM，不是 GML；模型名可按控制台开通情况调整。",
+    status: "智谱 GLM 预设，模型名可按控制台开通情况调整。",
   },
   mimo: {
     label: "小米 MiMo",
@@ -35,7 +35,7 @@ const CODEX_MODEL_PROVIDERS = {
     envKey: "MIMO_API_KEY",
     model: "mimo-v2.5-pro",
     contextWindow: DEFAULT_CONTEXT_WINDOW,
-    status: "MiMo 官方 OpenAI 兼容文档以 chat/completions 为主，需要实测 Responses。",
+    status: "OpenAI-compatible 接口，需确认 Responses API 兼容性。",
   },
   ark: {
     label: "火山方舟豆包",
@@ -43,7 +43,7 @@ const CODEX_MODEL_PROVIDERS = {
     envKey: "ARK_API_KEY",
     model: "doubao-seed-1-6-250615",
     contextWindow: 256000,
-    status: "火山方舟模型名可能跟地域、接入点和开通服务有关，可按控制台替换。",
+    status: "模型名可能跟地域、接入点和开通服务有关，可按控制台替换。",
   },
   bailian: {
     label: "阿里百炼 Qwen",
@@ -51,7 +51,7 @@ const CODEX_MODEL_PROVIDERS = {
     envKey: "DASHSCOPE_API_KEY",
     model: "qwen-plus",
     contextWindow: 131072,
-    status: "百炼 OpenAI 兼容接口以 chat/completions 为主，需要实测 Responses。",
+    status: "OpenAI-compatible 接口，需确认 Responses API 兼容性。",
   },
 };
 
@@ -72,6 +72,58 @@ function providerBlock(id, provider) {
     `wire_api = "responses"`,
     "",
   ].join("\n");
+}
+
+function validateProvider(id, provider) {
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+    throw new Error(`模型配置档名称只能包含字母、数字、下划线和短横线：${id}`);
+  }
+  for (const key of ["label", "baseUrl", "envKey", "model"]) {
+    if (!provider || typeof provider[key] !== "string" || provider[key].trim() === "") {
+      throw new Error(`${id} 缺少必填字段：${key}`);
+    }
+  }
+  if (!/^[A-Z][A-Z0-9_]*$/.test(provider.envKey)) {
+    throw new Error(`${id} 的 envKey 必须是环境变量名，例如 CUSTOM_API_KEY`);
+  }
+  const contextWindow = Number(provider.contextWindow || DEFAULT_CONTEXT_WINDOW);
+  if (!Number.isFinite(contextWindow) || contextWindow <= 0) {
+    throw new Error(`${id} 的 contextWindow 必须是正数`);
+  }
+  return {
+    label: provider.label.trim(),
+    baseUrl: provider.baseUrl.trim().replace(/\/+$/, ""),
+    envKey: provider.envKey.trim(),
+    model: provider.model.trim(),
+    contextWindow,
+    status: provider.status || "自定义 OpenAI-compatible 提供方。",
+  };
+}
+
+function parseProviderFileContent(content, filePath = "provider file") {
+  const parsed = JSON.parse(content);
+  const providers = parsed.providers || parsed;
+  if (!providers || typeof providers !== "object" || Array.isArray(providers)) {
+    throw new Error(`${filePath} 必须是 provider 对象，或包含 providers 对象`);
+  }
+  const result = {};
+  for (const [id, provider] of Object.entries(providers)) {
+    result[id] = validateProvider(id, provider);
+  }
+  return result;
+}
+
+function loadProviderFile(filePath) {
+  return parseProviderFileContent(fs.readFileSync(filePath, "utf8"), filePath);
+}
+
+function buildProviderRegistry(options = {}) {
+  const registry = { ...CODEX_MODEL_PROVIDERS };
+  const files = options.providerFiles || [];
+  for (const filePath of files) {
+    Object.assign(registry, loadProviderFile(filePath));
+  }
+  return registry;
 }
 
 function modelConfigToml(id, provider) {
@@ -130,19 +182,20 @@ function upsertTomlTable(content, tableName, block) {
   return `${next.join("\n").trimEnd()}\n`;
 }
 
-function normalizeProviderIds(ids) {
-  const providerIds = ids && ids.length > 0 ? ids : Object.keys(CODEX_MODEL_PROVIDERS);
+function normalizeProviderIds(ids, registry = CODEX_MODEL_PROVIDERS) {
+  const providerIds = ids && ids.length > 0 ? ids : Object.keys(registry);
   return providerIds.flatMap((id) => {
-    if (id === "all" || id === "全部") return Object.keys(CODEX_MODEL_PROVIDERS);
-    if (!CODEX_MODEL_PROVIDERS[id]) throw new Error(`未知模型：${id}`);
+    if (id === "all" || id === "全部") return Object.keys(registry);
+    if (!registry[id]) throw new Error(`未知模型：${id}`);
     return id;
   });
 }
 
 function upsertProviders(content, providerIds = Object.keys(CODEX_MODEL_PROVIDERS), options = {}) {
+  const registry = options.registry || CODEX_MODEL_PROVIDERS;
   let next = options.ensureDefault ? ensureOpenAiDefault(content, options.defaultModel) : content || "";
-  for (const id of normalizeProviderIds(providerIds)) {
-    next = upsertTomlTable(next, `model_providers.${id}`, providerBlock(id, CODEX_MODEL_PROVIDERS[id]));
+  for (const id of normalizeProviderIds(providerIds, registry)) {
+    next = upsertTomlTable(next, `model_providers.${id}`, providerBlock(id, registry[id]));
   }
   return next;
 }
@@ -163,16 +216,18 @@ function writeFileEnsured(filePath, content) {
 
 function installCodexModels(options = {}) {
   const home = options.codexHome || codexHome();
-  const providerIds = normalizeProviderIds(options.providers);
+  const registry = options.registry || buildProviderRegistry({ providerFiles: options.providerFiles || [] });
+  const providerIds = normalizeProviderIds(options.providers, registry);
   const configPath = path.join(home, "config.toml");
   const currentConfig = readIfExists(configPath);
   const nextConfig = upsertProviders(currentConfig, providerIds, {
     ensureDefault: options.ensureDefault === true || currentConfig.trim() === "",
     defaultModel: options.defaultModel || "gpt-5.5",
+    registry,
   });
 
   const modelConfigs = providerIds.map((id) => {
-    const provider = CODEX_MODEL_PROVIDERS[id];
+    const provider = registry[id];
     return {
       id,
       path: path.join(home, `${id}.config.toml`),
@@ -187,6 +242,7 @@ function installCodexModels(options = {}) {
     changedConfig: currentConfig !== nextConfig,
     modelConfigs,
     backupPath: null,
+    registry,
   };
 
   if (options.dryRun) return result;
@@ -205,11 +261,14 @@ function installCodexModels(options = {}) {
 
 module.exports = {
   CODEX_MODEL_PROVIDERS,
+  buildProviderRegistry,
   codexHome,
   ensureOpenAiDefault,
   installCodexModels,
+  loadProviderFile,
   modelConfigToml,
   normalizeProviderIds,
+  parseProviderFileContent,
   providerBlock,
   tableRange,
   timestampForFile,

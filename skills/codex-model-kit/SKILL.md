@@ -1,11 +1,11 @@
 ---
 name: codex-model-kit
-description: 用 codex-model-kit 仓库脚本为 Codex 配置 MiniMax、DeepSeek、智谱 GLM、MiMo、火山方舟豆包、阿里百炼等第三方 API 模型配置档。适合用户要求“帮我配置 Codex 多模型”“不要手动改 config.toml”“Key 用弹窗输入”“录屏演示”时使用。
+description: 用 codex-model-kit 仓库脚本为 Codex 配置内置或自定义第三方 API 模型配置档。适合用户要求“配置 Codex 多模型”“配置 OpenAI-compatible 中转站”“不要手动改 config.toml”“Key 用本地弹窗输入”时使用。
 ---
 
 # Codex Model Kit
 
-当用户要求配置 Codex 第三方模型时，优先使用仓库里的脚本，而不是让用户手动改 `~/.codex/config.toml`。
+当用户要求配置 Codex 第三方模型或 OpenAI-compatible 中转站时，优先使用仓库里的脚本，而不是让用户手动改 `~/.codex/config.toml`。
 
 ## 流程
 
@@ -37,8 +37,8 @@ codex doctor -p minimax
 
 ## 重要边界
 
-`GPT-5.3-Codex-Spark` 是 Codex 的官方使用额度，不是第三方 API 免费额度。
+如果账户有 `GPT-5.3-Codex-Spark` 可用额度，可以用它完成仓库拉取、脚本运行、配置修改和问题排查。
 
 第三方模型真正推理时，消耗对应平台自己的 API Key 和额度。
 
-Codex 自定义 provider 需要 Responses 兼容。如果 DeepSeek、MiMo、火山方舟或阿里百炼报 `/responses`、`404`、`unsupported endpoint`，优先解释为接口协议兼容问题。
+Codex 自定义 provider 需要 Responses 兼容。如果 provider 报 `/responses`、`404`、`unsupported endpoint`，优先解释为接口协议兼容问题。
