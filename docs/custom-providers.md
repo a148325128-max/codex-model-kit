@@ -57,6 +57,8 @@ cp providers.example.json providers.local.json
 node scripts/setup-codex-models.js --models relay --set-keys-gui
 ```
 
+`--set-keys-gui` 在 macOS 和 Windows 上都会弹出隐藏输入框。
+
 也可以显式指定：
 
 ```bash

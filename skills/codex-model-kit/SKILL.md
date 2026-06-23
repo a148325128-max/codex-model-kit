@@ -1,6 +1,6 @@
 ---
 name: codex-model-kit
-description: 用 codex-model-kit 仓库脚本为 Codex 配置内置或自定义第三方 API 模型配置档。适合用户要求“配置 Codex 多模型”“配置 OpenAI-compatible 中转站”“不要手动改 config.toml”“Key 用本地弹窗输入”时使用。
+description: 用 codex-model-kit 仓库脚本为 Codex 配置内置或自定义第三方 API 模型配置档。适合用户要求“配置 Codex 多模型”“配置 OpenAI-compatible 中转站”“不要手动改 config.toml”“Key 用 macOS 或 Windows 本地弹窗输入”时使用。
 ---
 
 # Codex Model Kit
@@ -23,7 +23,7 @@ npm run setup:dry-run
 npm run setup:gui
 ```
 
-4. 让用户在本机 macOS 弹窗里粘贴 API Key。
+4. 让用户在本机 macOS 或 Windows 弹窗里粘贴 API Key。
 
 5. 不要要求用户把真实 Key 发到聊天里。
 

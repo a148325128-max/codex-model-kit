@@ -9,7 +9,7 @@ Codex 多模型配置工具包，用于在保留默认 OpenAI 模型的同时，
 - 保留现有 OpenAI 默认配置。
 - 写入 Codex `model_providers` 配置。
 - 为每个提供方生成独立的 `~/.codex/<name>.config.toml`。
-- 支持 macOS 弹窗输入 API Key。
+- 支持 macOS / Windows 弹窗输入 API Key。
 - 支持终端隐藏输入 API Key。
 - 支持通过 `providers.local.json` 增加自定义第三方 API 或中转站。
 - 写入前自动备份已有 `~/.codex/config.toml`。
@@ -27,7 +27,10 @@ npm run setup:gui
 
 `setup:dry-run` 只预览将要写入的文件，不修改配置。
 
-`setup:gui` 会写入配置，并用 macOS 系统弹窗输入 API Key。
+`setup:gui` 会写入配置，并用系统弹窗输入 API Key：
+
+- macOS：使用系统对话框，并写入 `launchctl` 环境变量。
+- Windows：使用 Windows 弹窗，并写入当前用户环境变量。
 
 如果只安装部分配置档：
 
@@ -96,13 +99,15 @@ node scripts/setup-codex-models.js --models relay --set-keys-gui
 npm run setup:gui
 ```
 
+这是跨平台图形化模式。macOS 和 Windows 都可以直接运行。
+
 也可以使用终端隐藏输入：
 
 ```bash
 npm run setup:keys
 ```
 
-手动设置环境变量：
+手动设置环境变量时，macOS 使用：
 
 ```bash
 launchctl setenv MINIMAX_API_KEY "YOUR_MINIMAX_KEY"
@@ -113,7 +118,18 @@ launchctl setenv ARK_API_KEY "YOUR_ARK_KEY"
 launchctl setenv DASHSCOPE_API_KEY "YOUR_DASHSCOPE_KEY"
 ```
 
-设置完成后，完全退出并重新打开 Codex Desktop。
+Windows 使用 PowerShell 或 CMD：
+
+```powershell
+setx MINIMAX_API_KEY "YOUR_MINIMAX_KEY"
+setx DEEPSEEK_API_KEY "YOUR_DEEPSEEK_KEY"
+setx ZHIPU_API_KEY "YOUR_ZHIPU_KEY"
+setx MIMO_API_KEY "YOUR_MIMO_KEY"
+setx ARK_API_KEY "YOUR_ARK_KEY"
+setx DASHSCOPE_API_KEY "YOUR_DASHSCOPE_KEY"
+```
+
+设置完成后，完全退出并重新打开 Codex Desktop 或终端。
 
 ## 使用配置档
 

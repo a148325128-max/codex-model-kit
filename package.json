@@ -29,7 +29,9 @@
     "responses-api",
     "byok",
     "relay",
-    "gateway"
+    "gateway",
+    "macos",
+    "windows"
   ],
   "author": "",
   "license": "MIT"

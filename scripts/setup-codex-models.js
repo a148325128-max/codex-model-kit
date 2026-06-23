@@ -21,7 +21,7 @@ function printHelp() {
 常用命令：
   npm run setup:dry-run   只预览，不修改文件
   npm run setup           写入 Codex 多模型配置档
-  npm run setup:gui       用 macOS 弹窗输入 Key
+  npm run setup:gui       用 macOS / Windows 弹窗输入 Key
   npm run setup:keys      用终端隐藏输入 Key
 
 参数：
@@ -43,13 +43,13 @@ function printHelp() {
       只预览计划写入的文件，不真正修改。
 
   --set-keys
-      在终端里隐藏输入 API Key，并写入 macOS launchctl 环境变量。
+      在终端里隐藏输入 API Key，并写入本机用户环境变量。
 
   --set-keys-gui
-      用 macOS 系统弹窗输入 API Key。
+      用 macOS / Windows 系统弹窗输入 API Key。
 
   --restart-codex
-      配置后重启 Codex App。仅 macOS 可用，默认不自动重启。
+      配置后重启 Codex App。当前仅 macOS 支持自动重启，默认不自动重启。
 
   --list
       列出可用模型配置档。
@@ -160,9 +160,6 @@ function promptHidden(question) {
 }
 
 function setLaunchctlEnv(envKey, value) {
-  if (process.platform !== "darwin") {
-    throw new Error("自动写入环境变量目前只支持 macOS launchctl。其他系统请手动设置环境变量。");
-  }
   const result = spawnSync("launchctl", ["setenv", envKey, value], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -172,12 +169,59 @@ function setLaunchctlEnv(envKey, value) {
   }
 }
 
-function promptGui(provider) {
-  if (process.platform !== "darwin") {
-    throw new Error("--set-keys-gui 目前只支持 macOS。");
+function windowsPowerShell() {
+  return process.env.SystemRoot
+    ? path.join(process.env.SystemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+    : "powershell.exe";
+}
+
+function runWindowsPowerShell(script, extraEnv = {}, options = {}) {
+  const args = ["-NoProfile", "-ExecutionPolicy", "Bypass"];
+  if (options.sta) args.push("-STA");
+  args.push("-Command", script);
+  const result = spawnSync(windowsPowerShell(), args, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, ...extraEnv },
+    windowsHide: true,
+  });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || "PowerShell 返回非零状态");
   }
+  return result.stdout || "";
+}
+
+function setWindowsUserEnv(envKey, value) {
+  runWindowsPowerShell(
+    "[Environment]::SetEnvironmentVariable($env:CODEX_MODEL_KIT_ENV_KEY, $env:CODEX_MODEL_KIT_ENV_VALUE, 'User')",
+    {
+      CODEX_MODEL_KIT_ENV_KEY: envKey,
+      CODEX_MODEL_KIT_ENV_VALUE: value,
+    },
+  );
+}
+
+function setPersistentEnv(envKey, value) {
+  if (process.platform === "darwin") {
+    setLaunchctlEnv(envKey, value);
+    return;
+  }
+  if (process.platform === "win32") {
+    setWindowsUserEnv(envKey, value);
+    return;
+  }
+  throw new Error("自动写入环境变量目前支持 macOS 和 Windows。其他系统请手动设置环境变量。");
+}
+
+function appleScriptString(value) {
+  return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function promptMacGui(provider) {
+  const label = appleScriptString(provider.label);
+  const envKey = appleScriptString(provider.envKey);
   const script = `
-set dialogResult to display dialog "请输入 ${provider.label} API Key\\n\\n环境变量：${provider.envKey}\\n\\n输入内容会隐藏，不会写进配置文件。" default answer "" with hidden answer buttons {"跳过", "保存"} default button "保存"
+set dialogResult to display dialog "请输入 ${label} API Key\\n\\n环境变量：${envKey}\\n\\n输入内容会隐藏，不会写进配置文件。" default answer "" with hidden answer buttons {"跳过", "保存"} default button "保存"
 set buttonName to button returned of dialogResult
 set keyText to text returned of dialogResult
 return buttonName & "\\n" & keyText
@@ -194,6 +238,80 @@ return buttonName & "\\n" & keyText
   return rest.join("\n").trim();
 }
 
+function promptWindowsGui(provider) {
+  const script = `
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
+
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Codex Model Kit"
+$form.StartPosition = "CenterScreen"
+$form.FormBorderStyle = "FixedDialog"
+$form.MaximizeBox = $false
+$form.MinimizeBox = $false
+$form.ClientSize = New-Object System.Drawing.Size(520, 185)
+$form.TopMost = $true
+
+$label = New-Object System.Windows.Forms.Label
+$label.AutoSize = $false
+$label.Location = New-Object System.Drawing.Point(16, 16)
+$label.Size = New-Object System.Drawing.Size(488, 64)
+$label.Text = "请输入 " + $env:CODEX_MODEL_KIT_LABEL + " API Key" + [Environment]::NewLine + "环境变量：" + $env:CODEX_MODEL_KIT_ENV_KEY + [Environment]::NewLine + "输入内容会隐藏，不会写进配置文件。"
+$form.Controls.Add($label)
+
+$textBox = New-Object System.Windows.Forms.TextBox
+$textBox.Location = New-Object System.Drawing.Point(16, 88)
+$textBox.Size = New-Object System.Drawing.Size(488, 24)
+$textBox.UseSystemPasswordChar = $true
+$form.Controls.Add($textBox)
+
+$saveButton = New-Object System.Windows.Forms.Button
+$saveButton.Text = "保存"
+$saveButton.Location = New-Object System.Drawing.Point(328, 136)
+$saveButton.Size = New-Object System.Drawing.Size(80, 30)
+$saveButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
+$form.AcceptButton = $saveButton
+$form.Controls.Add($saveButton)
+
+$skipButton = New-Object System.Windows.Forms.Button
+$skipButton.Text = "跳过"
+$skipButton.Location = New-Object System.Drawing.Point(424, 136)
+$skipButton.Size = New-Object System.Drawing.Size(80, 30)
+$skipButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+$form.CancelButton = $skipButton
+$form.Controls.Add($skipButton)
+
+$result = $form.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+  "SAVE"
+  $textBox.Text
+} else {
+  "SKIP"
+}
+`;
+  const stdout = runWindowsPowerShell(script, {
+    CODEX_MODEL_KIT_LABEL: provider.label,
+    CODEX_MODEL_KIT_ENV_KEY: provider.envKey,
+  }, { sta: true });
+  const [buttonName, ...rest] = String(stdout || "").split(/\r?\n/);
+  if (buttonName.trim() !== "SAVE") return "";
+  return rest.join("\n").trim();
+}
+
+function promptGui(provider) {
+  if (process.platform === "darwin") return promptMacGui(provider);
+  if (process.platform === "win32") return promptWindowsGui(provider);
+  throw new Error("--set-keys-gui 目前支持 macOS 和 Windows。其他系统请使用 --set-keys 或手动设置环境变量。");
+}
+
+function manualEnvCommand(envKey, placeholder) {
+  if (process.platform === "win32") {
+    return `setx ${envKey} "${placeholder}"`;
+  }
+  return `launchctl setenv ${envKey} "${placeholder}"`;
+}
+
 async function setProviderKeys(modelConfigs) {
   if (!process.stdin.isTTY) {
     throw new Error("--set-keys 需要在交互式终端里运行。");
@@ -205,20 +323,20 @@ async function setProviderKeys(modelConfigs) {
       console.log(`- 已跳过 ${item.provider.label}`);
       continue;
     }
-    setLaunchctlEnv(item.provider.envKey, answer);
+    setPersistentEnv(item.provider.envKey, answer);
     console.log(`- 已设置 ${item.provider.envKey}`);
   }
 }
 
 function setProviderKeysGui(modelConfigs) {
-  console.log("\n开始用 macOS 弹窗设置 API Key。输入内容会隐藏，点击“跳过”可略过。");
+  console.log("\n开始用系统弹窗设置 API Key。输入内容会隐藏，点击“跳过”可略过。");
   for (const item of modelConfigs) {
     const answer = promptGui(item.provider);
     if (!answer) {
       console.log(`- 已跳过 ${item.provider.label}`);
       continue;
     }
-    setLaunchctlEnv(item.provider.envKey, answer);
+    setPersistentEnv(item.provider.envKey, answer);
     console.log(`- 已设置 ${item.provider.envKey}`);
   }
 }
@@ -297,7 +415,7 @@ async function main() {
   } else {
     console.log("\n下一步：把 API Key 放到环境变量里，不要写进配置文件：");
     for (const item of result.modelConfigs) {
-      console.log(`  launchctl setenv ${item.provider.envKey} "YOUR_${item.id.toUpperCase()}_KEY"`);
+      console.log(`  ${manualEnvCommand(item.provider.envKey, `YOUR_${item.id.toUpperCase()}_KEY`)}`);
     }
   }
 

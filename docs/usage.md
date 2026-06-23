@@ -28,7 +28,16 @@ node scripts/setup-codex-models.js --models minimax,deepseek,zhipu
 npm run setup:gui
 ```
 
-该命令会在 macOS 上弹出隐藏输入框，并将 API Key 写入 `launchctl` 环境变量。
+该命令会弹出隐藏输入框，并写入本机用户环境变量。
+
+平台行为：
+
+| 平台 | 弹窗方式 | 环境变量写入 |
+| --- | --- | --- |
+| macOS | 系统对话框 | `launchctl setenv` |
+| Windows | Windows 桌面弹窗 | 当前用户环境变量 |
+
+设置完成后需要完全退出并重新打开 Codex Desktop 或终端。
 
 ## 终端隐藏输入 API Key
 
@@ -37,6 +46,8 @@ npm run setup:keys
 ```
 
 适合在交互式终端中使用。输入内容不会显示在屏幕上。
+
+该命令同样支持 macOS 和 Windows。
 
 ## 自定义配置源
 
@@ -52,7 +63,7 @@ node scripts/setup-codex-models.js --provider-file providers.local.json --models
 node scripts/setup-codex-models.js --restart-codex
 ```
 
-该参数会尝试关闭并重新打开 macOS Codex App。建议确认当前任务已保存后再使用。
+该参数当前仅支持 macOS，会尝试关闭并重新打开 Codex App。Windows 请手动重启 Codex Desktop。
 
 ## 验证
 
