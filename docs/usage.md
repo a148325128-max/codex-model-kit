@@ -41,7 +41,50 @@ model_provider = "minimax"
 model = "MiniMax-M3"
 ```
 
-并生成 `model_catalog_json`。重启 Codex Desktop 后，当前模型会按这个默认配置加载。
+它不会默认生成 `model_catalog_json`。重启 Codex Desktop 后，当前模型会按这个默认配置加载。
+
+## Codex Desktop 底部模型下拉
+
+官方配置里，`model_provider` 是当前 provider，`model` 是当前模型。底部模型下拉适合在同一个 provider 内切换模型名，不适合作为多个不同平台、不同 `base_url`、不同 API Key 的总开关。
+
+如果你使用统一中转站，可以在 `providers.local.json` 里给单个 provider 增加 `models` 元数据：
+
+```json
+{
+  "providers": {
+    "relay": {
+      "label": "Relay",
+      "baseUrl": "https://your-relay.example.com/v1",
+      "envKey": "RELAY_API_KEY",
+      "model": "DeepSeekV4",
+      "models": ["DeepSeekV4", "MiMo-V2.5", "GLM-V5.2", "MiniMax-M3", "Doubgo-Seed-2.1-pro"],
+      "contextWindow": 128000
+    }
+  }
+}
+```
+
+然后运行：
+
+```bash
+node scripts/setup-codex-models.js --models relay --set-default relay --write-model-catalog --set-keys-gui
+```
+
+`--write-model-catalog` 会读取本机 Codex 的 `models_cache.json` 作为完整模板，再生成 `codex-model-kit-models.json`。这样可以避免缺少 `base_instructions` 等必填字段导致 Codex 无法加载配置。
+
+`--write-model-catalog` 必须和 `--set-default` 一起使用，因为模型目录需要绑定到当前 `model_provider`。
+
+如果你使用 MiniMax、DeepSeek、智谱、MiMo、火山方舟这类多个独立平台，请使用：
+
+```bash
+codex -p minimax
+codex -p deepseek
+codex -p zhipu
+codex -p mimo
+codex -p ark
+```
+
+或者运行 `npm run setup:default -- <配置档>` 把某一个 provider 设为当前默认。
 
 ## 图形化输入 API Key
 

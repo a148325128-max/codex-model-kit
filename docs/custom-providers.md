@@ -30,7 +30,8 @@ cp providers.example.json providers.local.json
       "label": "OpenAI-compatible Relay",
       "baseUrl": "https://your-relay.example.com/v1",
       "envKey": "RELAY_API_KEY",
-      "model": "your-model-name",
+      "model": "DeepSeekV4",
+      "models": ["DeepSeekV4", "MiMo-V2.5", "GLM-V5.2", "MiniMax-M3", "Doubgo-Seed-2.1-pro"],
       "contextWindow": 128000,
       "status": "自定义 OpenAI-compatible 或中转站配置。"
     }
@@ -46,6 +47,7 @@ cp providers.example.json providers.local.json
 | `baseUrl` | 是 | API 基础地址 |
 | `envKey` | 是 | 本机环境变量名 |
 | `model` | 是 | 模型名或中转站模型标识 |
+| `models` | 否 | 本工具元数据。用于统一中转站下生成模型目录，不会写入 Codex 官方 TOML |
 | `contextWindow` | 否 | 上下文窗口大小 |
 | `status` | 否 | 备注 |
 
@@ -80,6 +82,8 @@ base_url = "https://your-relay.example.com/v1"
 env_key = "RELAY_API_KEY"
 wire_api = "responses"
 ```
+
+如果配置中包含 `models`，这些模型不会写进 `[model_providers.relay]`。它们只会在你显式运行 `--write-model-catalog` 时，用来生成 `model_catalog_json`。该功能适合一个统一中转站 provider 下的多个模型；不建议把多个不同平台强行合成一个模型下拉。
 
 ## 兼容性
 

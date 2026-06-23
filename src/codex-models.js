@@ -10,6 +10,7 @@ const CODEX_MODEL_PROVIDERS = {
     baseUrl: "https://api.minimax.io/v1",
     envKey: "MINIMAX_API_KEY",
     model: "MiniMax-M3",
+    models: ["MiniMax-M3"],
     contextWindow: DEFAULT_CONTEXT_WINDOW,
     status: "内置预设。",
   },
@@ -17,7 +18,8 @@ const CODEX_MODEL_PROVIDERS = {
     label: "DeepSeek",
     baseUrl: "https://api.deepseek.com",
     envKey: "DEEPSEEK_API_KEY",
-    model: "deepseek-v4-flash",
+    model: "DeepSeekV4",
+    models: ["DeepSeekV4"],
     contextWindow: DEFAULT_CONTEXT_WINDOW,
     status: "OpenAI-compatible 接口，需确认 Responses API 兼容性。",
   },
@@ -25,7 +27,8 @@ const CODEX_MODEL_PROVIDERS = {
     label: "智谱 GLM",
     baseUrl: "https://open.bigmodel.cn/api/coding/paas/v4",
     envKey: "ZHIPU_API_KEY",
-    model: "glm-5.2",
+    model: "GLM-V5.2",
+    models: ["GLM-V5.2"],
     contextWindow: 1000000,
     status: "智谱 GLM 预设，模型名可按控制台开通情况调整。",
   },
@@ -33,7 +36,8 @@ const CODEX_MODEL_PROVIDERS = {
     label: "小米 MiMo",
     baseUrl: "https://api.xiaomimimo.com/v1",
     envKey: "MIMO_API_KEY",
-    model: "mimo-v2.5-pro",
+    model: "MiMo-V2.5",
+    models: ["MiMo-V2.5"],
     contextWindow: DEFAULT_CONTEXT_WINDOW,
     status: "OpenAI-compatible 接口，需确认 Responses API 兼容性。",
   },
@@ -41,7 +45,8 @@ const CODEX_MODEL_PROVIDERS = {
     label: "火山方舟豆包",
     baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
     envKey: "ARK_API_KEY",
-    model: "doubao-seed-1-6-250615",
+    model: "Doubgo-Seed-2.1-pro",
+    models: ["Doubgo-Seed-2.1-pro"],
     contextWindow: 256000,
     status: "模型名可能跟地域、接入点和开通服务有关，可按控制台替换。",
   },
@@ -90,11 +95,19 @@ function validateProvider(id, provider) {
   if (!Number.isFinite(contextWindow) || contextWindow <= 0) {
     throw new Error(`${id} 的 contextWindow 必须是正数`);
   }
+  if (provider.models !== undefined && !Array.isArray(provider.models)) {
+    throw new Error(`${id} 的 models 必须是字符串数组`);
+  }
+  const models = [
+    provider.model.trim(),
+    ...((provider.models || []).map((model) => String(model || "").trim()).filter(Boolean)),
+  ];
   return {
     label: provider.label.trim(),
     baseUrl: provider.baseUrl.trim().replace(/\/+$/, ""),
     envKey: provider.envKey.trim(),
     model: provider.model.trim(),
+    models: [...new Set(models)],
     contextWindow,
     status: provider.status || "自定义 OpenAI-compatible 提供方。",
   };
@@ -177,6 +190,10 @@ function setDefaultModelProvider(content, id, provider, options = {}) {
   return next;
 }
 
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 function tableRange(lines, tableName) {
   const header = `[${tableName}]`;
   const start = lines.findIndex((line) => line.trim() === header);
@@ -245,28 +262,69 @@ function writeFileEnsured(filePath, content) {
   fs.writeFileSync(filePath, content, "utf8");
 }
 
-function modelCatalogEntry(id, provider, priority = 100) {
-  return {
-    slug: provider.model,
-    display_name: provider.label,
-    description: `${provider.label} via codex-model-kit (${id})`,
-    default_reasoning_level: "medium",
-    supported_reasoning_levels: [
-      { effort: "low", description: "Fast responses with lighter reasoning" },
-      { effort: "medium", description: "Balanced reasoning" },
-      { effort: "high", description: "Greater reasoning depth" },
-      { effort: "xhigh", description: "Extra high reasoning depth" },
-    ],
-    shell_type: "shell_command",
-    visibility: "list",
-    supported_in_api: true,
-    priority,
-  };
+function extractModelCatalogModels(parsed, sourcePath = "model catalog") {
+  const models = Array.isArray(parsed) ? parsed : parsed.models;
+  if (!Array.isArray(models)) {
+    throw new Error(`${sourcePath} 不是有效的 Codex 模型目录：缺少 models 数组`);
+  }
+  return models;
 }
 
-function modelCatalogJson(providerIds, registry) {
+function loadModelCatalogTemplate(sourcePath) {
+  if (!sourcePath || !fs.existsSync(sourcePath)) {
+    throw new Error(
+      `找不到 Codex 模型目录模板：${sourcePath}。请先打开一次 Codex Desktop，让它生成 models_cache.json，或不要使用 --write-model-catalog。`,
+    );
+  }
+  const parsed = JSON.parse(fs.readFileSync(sourcePath, "utf8"));
+  const models = extractModelCatalogModels(parsed, sourcePath);
+  const template = models.find((model) => model.slug === "gpt-5.5" && typeof model.base_instructions === "string")
+    || models.find((model) => typeof model.base_instructions === "string");
+  if (!template) {
+    throw new Error(`${sourcePath} 里没有带 base_instructions 的模型模板，不能安全生成 model_catalog_json。`);
+  }
+  return template;
+}
+
+function catalogModelSpecs(providerIds, registry) {
+  return providerIds.flatMap((id) => {
+    const provider = registry[id];
+    const models = provider.models && provider.models.length > 0 ? provider.models : [provider.model];
+    return models.map((model) => ({ id, provider, model }));
+  });
+}
+
+function validateModelCatalogProviderScope(providerIds) {
+  if (providerIds.length !== 1) {
+    throw new Error(
+      "model_catalog_json 只应绑定一个当前 provider。多个第三方平台请使用统一中转站的单个 provider + models 字段，或分别使用配置档/Profile 切换。",
+    );
+  }
+}
+
+function modelCatalogEntry(spec, template, priority = 100) {
+  const entry = cloneJson(template);
+  entry.slug = spec.model;
+  entry.display_name = spec.provider.models && spec.provider.models.length > 1
+    ? `${spec.provider.label} ${spec.model}`
+    : spec.provider.label;
+  entry.description = `${spec.provider.label} via codex-model-kit (${spec.id})`;
+  entry.priority = priority;
+  entry.context_window = spec.provider.contextWindow;
+  entry.max_context_window = spec.provider.contextWindow;
+  entry.visibility = "list";
+  entry.supported_in_api = true;
+  return entry;
+}
+
+function modelCatalogJson(providerIds, registry, options = {}) {
+  const template = options.template || loadModelCatalogTemplate(options.sourcePath);
+  if (typeof template.base_instructions !== "string" || template.base_instructions.trim() === "") {
+    throw new Error("模型目录模板缺少 base_instructions，不能安全生成 model_catalog_json。");
+  }
+  const specs = catalogModelSpecs(providerIds, registry);
   return JSON.stringify({
-    models: providerIds.map((id, index) => modelCatalogEntry(id, registry[id], 100 + index)),
+    models: specs.map((spec, index) => modelCatalogEntry(spec, template, 100 + index)),
   }, null, 2);
 }
 
@@ -283,11 +341,19 @@ function installCodexModels(options = {}) {
     : options.setDefault
       ? normalizeProviderIds([options.setDefault], registry)
       : providerIds;
+  if (options.writeModelCatalog) {
+    if (!options.setDefault) {
+      throw new Error("--write-model-catalog 需要同时指定 --set-default，让模型目录绑定到当前 provider。");
+    }
+    validateModelCatalogProviderScope([...new Set(catalogProviderIds)]);
+  }
   const configPath = path.join(home, "config.toml");
   const currentConfig = readIfExists(configPath);
   const modelCatalogPath = options.writeModelCatalog
     ? path.join(home, "codex-model-kit-models.json")
     : null;
+  const modelCatalogSourcePath = options.modelCatalogSourcePath || path.join(home, "models_cache.json");
+  const modelCatalogTemplate = modelCatalogPath ? loadModelCatalogTemplate(modelCatalogSourcePath) : null;
   let nextConfig = upsertProviders(currentConfig, providerIds, {
     ensureDefault: options.ensureDefault === true || currentConfig.trim() === "",
     defaultModel: options.defaultModel || "gpt-5.5",
@@ -319,6 +385,7 @@ function installCodexModels(options = {}) {
     backupPath: null,
     registry,
     modelCatalogPath,
+    modelCatalogSourcePath: modelCatalogPath ? modelCatalogSourcePath : null,
     catalogProviderIds,
     setDefault: options.setDefault || null,
   };
@@ -332,7 +399,10 @@ function installCodexModels(options = {}) {
   }
   writeFileEnsured(configPath, nextConfig);
   if (modelCatalogPath) {
-    writeFileEnsured(modelCatalogPath, modelCatalogJson(catalogProviderIds, registry));
+    writeFileEnsured(
+      modelCatalogPath,
+      modelCatalogJson(catalogProviderIds, registry, { template: modelCatalogTemplate }),
+    );
   }
   for (const item of modelConfigs) {
     writeFileEnsured(item.path, item.content);
@@ -347,6 +417,7 @@ module.exports = {
   ensureOpenAiDefault,
   installCodexModels,
   loadProviderFile,
+  loadModelCatalogTemplate,
   modelCatalogEntry,
   modelCatalogJson,
   modelConfigToml,

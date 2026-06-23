@@ -4,6 +4,8 @@ Codex 多模型配置工具包，用于在保留默认 OpenAI 模型的同时，
 
 该项目面向 Codex Desktop / Codex CLI 的本地配置场景，支持内置模型预设，也支持自定义 OpenAI-compatible API、中转站和私有网关。
 
+本工具生成的 Codex TOML 配置遵循 OpenAI Codex 官方配置项：顶层 `model_provider`、`model`，以及 `[model_providers.<name>]` 下的 `name`、`base_url`、`env_key`、`wire_api`。仓库里的 `providers.local.json` 是本工具自己的输入文件，不会被 Codex 直接读取。
+
 ## 功能
 
 - 保留现有 OpenAI 默认配置。
@@ -38,7 +40,15 @@ npm run setup:gui
 npm run setup:default -- minimax
 ```
 
-该命令会按官方高级配置方式，把主 `~/.codex/config.toml` 的 `model_provider` 和 `model` 指向指定配置档，并生成 `model_catalog_json`。重启 Codex Desktop 后，底部模型位置会更接近当前第三方模型状态。
+该命令会按官方配置方式，把主 `~/.codex/config.toml` 的 `model_provider` 和 `model` 指向指定配置档。它不会默认写 `model_catalog_json`。
+
+如果要尝试让 Codex Desktop 底部模型下拉显示自定义模型，需要显式使用：
+
+```bash
+node scripts/setup-codex-models.js --set-default relay --models relay --write-model-catalog
+```
+
+`model_catalog_json` 会从本机 Codex 已缓存的 `models_cache.json` 复制完整模型字段结构后生成，避免写入缺少 `base_instructions` 的无效 JSON。建议只用于一个统一中转站 provider；多个不同平台分别有不同 `base_url` 和 API Key 时，请使用配置档/Profile 切换，或把这些模型统一接入同一个中转站。
 
 如果只安装部分配置档：
 
@@ -57,13 +67,13 @@ node scripts/setup-codex-models.js --list
 | 配置档 | 提供方 | 默认模型 | 环境变量 |
 | --- | --- | --- | --- |
 | `minimax` | MiniMax | `MiniMax-M3` | `MINIMAX_API_KEY` |
-| `deepseek` | DeepSeek | `deepseek-v4-flash` | `DEEPSEEK_API_KEY` |
-| `zhipu` | 智谱 GLM | `glm-5.2` | `ZHIPU_API_KEY` |
-| `mimo` | 小米 MiMo | `mimo-v2.5-pro` | `MIMO_API_KEY` |
-| `ark` | 火山方舟豆包 | `doubao-seed-1-6-250615` | `ARK_API_KEY` |
+| `deepseek` | DeepSeek | `DeepSeekV4` | `DEEPSEEK_API_KEY` |
+| `zhipu` | 智谱 GLM | `GLM-V5.2` | `ZHIPU_API_KEY` |
+| `mimo` | 小米 MiMo | `MiMo-V2.5` | `MIMO_API_KEY` |
+| `ark` | 火山方舟豆包 | `Doubgo-Seed-2.1-pro` | `ARK_API_KEY` |
 | `bailian` | 阿里百炼 Qwen | `qwen-plus` | `DASHSCOPE_API_KEY` |
 
-这些是内置预设。其他第三方模型、中转站、私有 OpenAI-compatible 网关，可以通过 `providers.local.json` 添加。
+这些是内置预设。模型名必须以各平台控制台实际可调用的模型 ID 为准；如果平台显示的名称不同，请用 `providers.local.json` 覆盖。
 
 ## 自定义第三方 API 或中转站
 
@@ -82,7 +92,14 @@ cp providers.example.json providers.local.json
       "label": "OpenAI-compatible Relay",
       "baseUrl": "https://your-relay.example.com/v1",
       "envKey": "RELAY_API_KEY",
-      "model": "your-model-name",
+      "model": "DeepSeekV4",
+      "models": [
+        "DeepSeekV4",
+        "MiMo-V2.5",
+        "GLM-V5.2",
+        "MiniMax-M3",
+        "Doubgo-Seed-2.1-pro"
+      ],
       "contextWindow": 128000
     }
   }
@@ -96,6 +113,8 @@ node scripts/setup-codex-models.js --models relay --set-keys-gui
 ```
 
 `providers.local.json` 已加入 `.gitignore`，适合保存本机私有中转站地址、模型名和环境变量名。
+
+说明：`model` 是写入 Codex 官方 TOML 的当前模型名；`models` 是本工具用于生成 `model_catalog_json` 的元数据，适合统一中转站下的多个模型。真实 API Key 仍只写入本机环境变量。
 
 更多说明见 [docs/custom-providers.md](docs/custom-providers.md)。
 
@@ -161,6 +180,31 @@ codex exec -p minimax "用一句话说明当前模型提供方"
 
 说明：官方文档里 `Profiles` 是 CLI 切换方式；如果希望桌面端当前模型跟随第三方 provider，需要把主配置里的 `model_provider` 和 `model` 指向该 provider。`setup:default` 做的就是这一步。
 
+如果要让底部模型下拉承担“多个第三方模型切换”，推荐使用一个统一中转站 provider：
+
+```json
+{
+  "providers": {
+    "relay": {
+      "label": "Relay",
+      "baseUrl": "https://your-relay.example.com/v1",
+      "envKey": "RELAY_API_KEY",
+      "model": "DeepSeekV4",
+      "models": ["DeepSeekV4", "MiMo-V2.5", "GLM-V5.2", "MiniMax-M3", "Doubgo-Seed-2.1-pro"],
+      "contextWindow": 128000
+    }
+  }
+}
+```
+
+然后运行：
+
+```bash
+node scripts/setup-codex-models.js --models relay --set-default relay --write-model-catalog --set-keys-gui
+```
+
+多个独立平台分别有不同 API Key 时，下拉只切 `model`，不等价于同时切换 `model_provider`、`base_url` 和 `env_key`。这种场景请使用 `codex -p minimax`、`codex -p deepseek` 等配置档方式，或者先接入统一中转站。
+
 ## 前置条件与兼容性
 
 配置前请确认：
@@ -181,6 +225,7 @@ codex exec -p minimax "用一句话说明当前模型提供方"
 
 ## 文档
 
+- [智能体执行流程](docs/agent-workflow.md)
 - [自定义 provider 与中转站](docs/custom-providers.md)
 - [命令参考](docs/usage.md)
 - [官方链接](docs/official-links.md)

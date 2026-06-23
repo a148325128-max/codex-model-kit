@@ -43,13 +43,16 @@ function printHelp() {
 
   --set-default MODEL_CONFIG
       将指定模型配置档写入主 config.toml 的 model_provider 和 model。
-      这更接近 Codex Desktop 底部模型位置的当前模型效果。
+      这会改变 Codex 当前默认 provider。不会默认写 model_catalog_json。
 
   --write-model-catalog
-      生成 model_catalog_json 文件，并写入主 config.toml。
+      尝试生成 Codex Desktop 可读取的 model_catalog_json，并写入主 config.toml。
+      该功能会读取本机 Codex 已缓存的 models_cache.json 作为完整字段模板。
+      必须同时指定 --set-default。
 
-  --catalog-models minimax,deepseek
-      指定写入模型目录的模型。默认在 --set-default 时只写入当前默认模型。
+  --catalog-models relay
+      指定写入模型目录的单个 provider。默认写入 --set-default 指定的 provider。
+      如果要在底部下拉里显示多个第三方模型，请使用一个统一中转站 provider 的 models 字段。
 
   --dry-run
       只预览计划写入的文件，不真正修改。
@@ -140,10 +143,8 @@ function parseArgs(argv) {
       options.defaultModel = arg.slice("--default-model=".length);
     } else if (arg === "--set-default") {
       options.setDefault = argv[++index];
-      options.writeModelCatalog = true;
     } else if (arg.startsWith("--set-default=")) {
       options.setDefault = arg.slice("--set-default=".length);
-      options.writeModelCatalog = true;
     } else if (arg === "--catalog-models") {
       options.catalogProviders = splitList(argv[++index]);
       options.writeModelCatalog = true;

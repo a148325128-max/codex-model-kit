@@ -4,15 +4,25 @@
       "label": "OpenAI-compatible Relay",
       "baseUrl": "https://your-relay.example.com/v1",
       "envKey": "RELAY_API_KEY",
-      "model": "your-model-name",
+      "model": "DeepSeekV4",
+      "models": [
+        "DeepSeekV4",
+        "MiMo-V2.5",
+        "GLM-V5.2",
+        "MiniMax-M3",
+        "Doubgo-Seed-2.1-pro"
+      ],
       "contextWindow": 128000,
-      "status": "自定义 OpenAI-compatible 或中转站配置。"
+      "status": "自定义 OpenAI-compatible 或中转站配置。models 是本工具用于生成模型目录的元数据，不会写入 Codex 官方 TOML 字段。"
     },
     "custom": {
       "label": "Custom Provider",
       "baseUrl": "https://api.example.com/v1",
       "envKey": "CUSTOM_API_KEY",
       "model": "custom-model",
+      "models": [
+        "custom-model"
+      ],
       "contextWindow": 128000,
       "status": "可替换为任意兼容 Codex Responses 协议的第三方模型。"
     }

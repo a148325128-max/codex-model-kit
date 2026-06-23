@@ -17,6 +17,7 @@ base_url
 env_key
 wire_api
 responses
+model_catalog_json
 ```
 
 Codex 高级配置：
@@ -92,3 +93,24 @@ base_url = "https://example.com/v1"
 env_key = "YOUR_API_KEY"
 wire_api = "responses"
 ```
+
+## 模型目录与桌面端下拉
+
+`model_catalog_json` 是 Codex 启动时读取的模型目录路径。该文件不是普通的“模型名列表”，而是 Codex 需要的完整模型目录结构，至少要包含模型基础指令等字段。
+
+本工具只在显式传入 `--write-model-catalog` 时写入 `model_catalog_json`，并且会从本机 Codex 已缓存的 `models_cache.json` 复制完整模型字段作为模板。不要手写简化 JSON，例如只写：
+
+```json
+{
+  "models": [
+    {
+      "slug": "DeepSeekV4",
+      "display_name": "DeepSeek"
+    }
+  ]
+}
+```
+
+这种文件缺少 Codex 需要的字段，可能导致 Codex Desktop 无法加载 `config.toml`。
+
+官方配置只定义一个当前 `model_provider`。因此，底部模型下拉更适合“同一个 provider 或统一中转站下的多个模型”；多个独立平台请使用不同配置档/Profile，或者统一接入一个中转站。
