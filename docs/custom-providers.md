@@ -94,6 +94,5 @@ Codex 自定义 provider 当前使用 Responses 协议。
 配置可以由脚本完成，但接口是否可用仍需要实际验证：
 
 ```bash
-codex doctor -p relay
 codex exec -p relay "hello"
 ```

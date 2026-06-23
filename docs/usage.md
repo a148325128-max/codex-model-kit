@@ -68,9 +68,12 @@ node scripts/setup-codex-models.js --restart-codex
 ## 验证
 
 ```bash
-codex doctor -p minimax
 codex exec -p minimax "用一句话说明当前模型提供方"
 ```
+
+`codex doctor` 当前不读取 `-p/--profile` 配置档。验证第三方 provider 时，请使用 `codex exec -p <配置档>`。
+
+Codex Desktop 底部的模型按钮用于选择官方模型和推理强度，不一定显示 `~/.codex/*.config.toml` 里的自定义配置档。
 
 ## 首次使用 Codex
 

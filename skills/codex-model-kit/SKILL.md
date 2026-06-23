@@ -32,7 +32,7 @@ npm run setup:gui
 7. 重启后验证：
 
 ```bash
-codex doctor -p minimax
+codex exec -p minimax "用一句话说明当前模型提供方"
 ```
 
 ## 重要边界

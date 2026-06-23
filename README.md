@@ -133,12 +133,6 @@ setx DASHSCOPE_API_KEY "YOUR_DASHSCOPE_KEY"
 
 ## 使用配置档
 
-验证配置：
-
-```bash
-codex doctor -p minimax
-```
-
 启动指定配置档：
 
 ```bash
@@ -151,7 +145,7 @@ codex -p minimax
 codex exec -p minimax "用一句话说明当前模型提供方"
 ```
 
-如果使用 Codex Desktop，可以在配置完成后用桌面端创建新会话并选择对应配置档。项目截图将在完成桌面端实测后补充。
+注意：Codex Desktop 底部的模型按钮用于选择官方模型和推理强度，不一定显示 `~/.codex/*.config.toml` 里的自定义配置档。自定义 provider 当前建议通过 `codex -p <配置档>` 或 `codex exec -p <配置档>` 启动验证。
 
 ## 前置条件与兼容性
 
@@ -163,7 +157,7 @@ codex exec -p minimax "用一句话说明当前模型提供方"
 - 模型名在当前账号和地域下可用。
 - 提供方接口兼容 Codex 当前使用的 Responses 协议。
 
-很多平台标注的 OpenAI-compatible 主要指 `chat/completions`。如果 `codex doctor` 或 `codex exec` 报 `/responses`、`404`、`unsupported endpoint`，通常表示该平台还需要 Responses API 兼容层，或需要使用支持 Responses 的网关。
+很多平台标注的 OpenAI-compatible 主要指 `chat/completions`。如果 `codex exec` 报 `/responses`、`404`、`unsupported endpoint`，通常表示该平台还需要 Responses API 兼容层，或需要使用支持 Responses 的网关。
 
 ## Codex Spark 使用说明
 

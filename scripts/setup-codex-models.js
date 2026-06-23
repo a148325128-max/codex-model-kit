@@ -361,17 +361,12 @@ function restartCodexApp() {
 }
 
 function printNextSteps(result) {
-  console.log("\n下一步：完全退出并重新打开 Codex，然后验证：");
-  for (const item of result.modelConfigs) {
-    console.log(`  codex doctor -p ${item.id}`);
-  }
-
-  console.log("\n运行指定模型配置档：");
+  console.log("\n下一步：完全退出并重新打开 Codex，然后运行指定模型配置档：");
   for (const item of result.modelConfigs) {
     console.log(`  codex -p ${item.id}`);
   }
 
-  console.log("\n一次性测试：");
+  console.log("\n一次性验证：");
   for (const item of result.modelConfigs) {
     console.log(`  codex exec -p ${item.id} "用一句话说出你当前使用的模型提供商"`);
   }
