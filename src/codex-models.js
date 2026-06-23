@@ -146,6 +146,37 @@ function ensureOpenAiDefault(content, model = "gpt-5.5") {
   return next;
 }
 
+function topLevelRange(lines) {
+  const end = lines.findIndex((line) => /^\s*\[[^\]]+\]\s*$/.test(line));
+  return { start: 0, end: end === -1 ? lines.length : end };
+}
+
+function upsertTopLevelValue(content, key, tomlValue) {
+  const normalized = content.endsWith("\n") || content.length === 0 ? content : `${content}\n`;
+  const lines = normalized.split("\n");
+  if (lines.at(-1) === "") lines.pop();
+  const range = topLevelRange(lines);
+  const matcher = new RegExp(`^\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*=`);
+  const index = lines.slice(range.start, range.end).findIndex((line) => matcher.test(line));
+  if (index === -1) {
+    lines.splice(range.start, 0, `${key} = ${tomlValue}`);
+  } else {
+    lines[range.start + index] = `${key} = ${tomlValue}`;
+  }
+  return `${lines.join("\n").trimEnd()}\n`;
+}
+
+function setDefaultModelProvider(content, id, provider, options = {}) {
+  let next = content || "";
+  next = upsertTopLevelValue(next, "model_provider", quoteToml(id));
+  next = upsertTopLevelValue(next, "model", quoteToml(provider.model));
+  next = upsertTopLevelValue(next, "model_context_window", String(provider.contextWindow));
+  if (options.modelCatalogPath) {
+    next = upsertTopLevelValue(next, "model_catalog_json", quoteToml(options.modelCatalogPath));
+  }
+  return next;
+}
+
 function tableRange(lines, tableName) {
   const header = `[${tableName}]`;
   const start = lines.findIndex((line) => line.trim() === header);
@@ -214,17 +245,61 @@ function writeFileEnsured(filePath, content) {
   fs.writeFileSync(filePath, content, "utf8");
 }
 
+function modelCatalogEntry(id, provider, priority = 100) {
+  return {
+    slug: provider.model,
+    display_name: provider.label,
+    description: `${provider.label} via codex-model-kit (${id})`,
+    default_reasoning_level: "medium",
+    supported_reasoning_levels: [
+      { effort: "low", description: "Fast responses with lighter reasoning" },
+      { effort: "medium", description: "Balanced reasoning" },
+      { effort: "high", description: "Greater reasoning depth" },
+      { effort: "xhigh", description: "Extra high reasoning depth" },
+    ],
+    shell_type: "shell_command",
+    visibility: "list",
+    supported_in_api: true,
+    priority,
+  };
+}
+
+function modelCatalogJson(providerIds, registry) {
+  return JSON.stringify({
+    models: providerIds.map((id, index) => modelCatalogEntry(id, registry[id], 100 + index)),
+  }, null, 2);
+}
+
 function installCodexModels(options = {}) {
   const home = options.codexHome || codexHome();
   const registry = options.registry || buildProviderRegistry({ providerFiles: options.providerFiles || [] });
-  const providerIds = normalizeProviderIds(options.providers, registry);
+  const selectedProviderIds = normalizeProviderIds(options.providers, registry);
+  const providerIds = [...new Set([
+    ...selectedProviderIds,
+    ...(options.setDefault ? normalizeProviderIds([options.setDefault], registry) : []),
+  ])];
+  const catalogProviderIds = options.catalogProviders
+    ? normalizeProviderIds(options.catalogProviders, registry)
+    : options.setDefault
+      ? normalizeProviderIds([options.setDefault], registry)
+      : providerIds;
   const configPath = path.join(home, "config.toml");
   const currentConfig = readIfExists(configPath);
-  const nextConfig = upsertProviders(currentConfig, providerIds, {
+  const modelCatalogPath = options.writeModelCatalog
+    ? path.join(home, "codex-model-kit-models.json")
+    : null;
+  let nextConfig = upsertProviders(currentConfig, providerIds, {
     ensureDefault: options.ensureDefault === true || currentConfig.trim() === "",
     defaultModel: options.defaultModel || "gpt-5.5",
     registry,
   });
+  if (options.setDefault) {
+    nextConfig = setDefaultModelProvider(nextConfig, options.setDefault, registry[options.setDefault], {
+      modelCatalogPath,
+    });
+  } else if (modelCatalogPath) {
+    nextConfig = upsertTopLevelValue(nextConfig, "model_catalog_json", quoteToml(modelCatalogPath));
+  }
 
   const modelConfigs = providerIds.map((id) => {
     const provider = registry[id];
@@ -243,6 +318,9 @@ function installCodexModels(options = {}) {
     modelConfigs,
     backupPath: null,
     registry,
+    modelCatalogPath,
+    catalogProviderIds,
+    setDefault: options.setDefault || null,
   };
 
   if (options.dryRun) return result;
@@ -253,6 +331,9 @@ function installCodexModels(options = {}) {
     fs.writeFileSync(result.backupPath, currentConfig, "utf8");
   }
   writeFileEnsured(configPath, nextConfig);
+  if (modelCatalogPath) {
+    writeFileEnsured(modelCatalogPath, modelCatalogJson(catalogProviderIds, registry));
+  }
   for (const item of modelConfigs) {
     writeFileEnsured(item.path, item.content);
   }
@@ -266,10 +347,13 @@ module.exports = {
   ensureOpenAiDefault,
   installCodexModels,
   loadProviderFile,
+  modelCatalogEntry,
+  modelCatalogJson,
   modelConfigToml,
   normalizeProviderIds,
   parseProviderFileContent,
   providerBlock,
+  setDefaultModelProvider,
   tableRange,
   timestampForFile,
   upsertProviders,

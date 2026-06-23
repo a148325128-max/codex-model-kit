@@ -32,6 +32,14 @@ npm run setup:gui
 - macOS：使用系统对话框，并写入 `launchctl` 环境变量。
 - Windows：使用 Windows 弹窗，并写入当前用户环境变量。
 
+如果希望让 Codex Desktop 当前模型直接指向某个第三方 provider：
+
+```bash
+npm run setup:default -- minimax
+```
+
+该命令会按官方高级配置方式，把主 `~/.codex/config.toml` 的 `model_provider` 和 `model` 指向指定配置档，并生成 `model_catalog_json`。重启 Codex Desktop 后，底部模型位置会更接近当前第三方模型状态。
+
 如果只安装部分配置档：
 
 ```bash
@@ -133,6 +141,12 @@ setx DASHSCOPE_API_KEY "YOUR_DASHSCOPE_KEY"
 
 ## 使用配置档
 
+设为当前默认模型：
+
+```bash
+npm run setup:default -- minimax
+```
+
 启动指定配置档：
 
 ```bash
@@ -145,7 +159,7 @@ codex -p minimax
 codex exec -p minimax "用一句话说明当前模型提供方"
 ```
 
-注意：Codex Desktop 底部的模型按钮用于选择官方模型和推理强度，不一定显示 `~/.codex/*.config.toml` 里的自定义配置档。自定义 provider 当前建议通过 `codex -p <配置档>` 或 `codex exec -p <配置档>` 启动验证。
+说明：官方文档里 `Profiles` 是 CLI 切换方式；如果希望桌面端当前模型跟随第三方 provider，需要把主配置里的 `model_provider` 和 `model` 指向该 provider。`setup:default` 做的就是这一步。
 
 ## 前置条件与兼容性
 

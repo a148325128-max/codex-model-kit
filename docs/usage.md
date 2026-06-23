@@ -22,6 +22,27 @@ npm run setup
 node scripts/setup-codex-models.js --models minimax,deepseek,zhipu
 ```
 
+## 设为当前默认模型
+
+```bash
+npm run setup:default -- minimax
+```
+
+等价于：
+
+```bash
+node scripts/setup-codex-models.js --set-default minimax
+```
+
+该命令会更新主 `~/.codex/config.toml`：
+
+```toml
+model_provider = "minimax"
+model = "MiniMax-M3"
+```
+
+并生成 `model_catalog_json`。重启 Codex Desktop 后，当前模型会按这个默认配置加载。
+
 ## 图形化输入 API Key
 
 ```bash
@@ -73,7 +94,7 @@ codex exec -p minimax "用一句话说明当前模型提供方"
 
 `codex doctor` 当前不读取 `-p/--profile` 配置档。验证第三方 provider 时，请使用 `codex exec -p <配置档>`。
 
-Codex Desktop 底部的模型按钮用于选择官方模型和推理强度，不一定显示 `~/.codex/*.config.toml` 里的自定义配置档。
+官方文档里 `Profiles` 是 CLI 切换方式。如果希望 Codex Desktop 当前模型直接跟随第三方 provider，请使用 `npm run setup:default -- <配置档>`。
 
 ## 首次使用 Codex
 

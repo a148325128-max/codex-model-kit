@@ -72,3 +72,23 @@ https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope
 OpenAI-compatible 并不必然等于可直接作为 Codex 自定义 provider 使用。
 
 Codex 自定义 provider 需要兼容 Responses 协议。如果某个第三方平台或中转站只兼容 `chat/completions`，可能需要使用支持 Responses 的网关，或增加协议转换层。
+
+## Profile 与默认 provider
+
+官方高级配置说明里，`Profiles` 用于通过 CLI 的 `--profile` 切换配置层。
+
+如果要让当前默认模型指向第三方 provider，需要在用户级 `~/.codex/config.toml` 中设置：
+
+```toml
+model_provider = "your-provider"
+model = "your-model"
+```
+
+并定义对应的：
+
+```toml
+[model_providers.your-provider]
+base_url = "https://example.com/v1"
+env_key = "YOUR_API_KEY"
+wire_api = "responses"
+```

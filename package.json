@@ -9,6 +9,7 @@
     "setup:dry-run": "node scripts/setup-codex-models.js --dry-run",
     "setup:gui": "node scripts/setup-codex-models.js --set-keys-gui",
     "setup:keys": "node scripts/setup-codex-models.js --set-keys",
+    "setup:default": "node scripts/setup-codex-models.js --set-default",
     "setup:help": "node scripts/setup-codex-models.js --help",
     "test": "node --test"
   },

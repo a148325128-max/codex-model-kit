@@ -7,9 +7,11 @@ const {
   CODEX_MODEL_PROVIDERS,
   buildProviderRegistry,
   installCodexModels,
+  modelCatalogJson,
   modelConfigToml,
   normalizeProviderIds,
   parseProviderFileContent,
+  setDefaultModelProvider,
   upsertProviders,
   upsertTomlTable,
 } = require("../src/codex-models");
@@ -111,6 +113,42 @@ test("modelConfigToml points the model config at the provider and model", () => 
   assert.match(result, /model_context_window = 512000/);
 });
 
+test("setDefaultModelProvider updates only top-level model settings", () => {
+  const input = [
+    'model = "gpt-5.5"',
+    'model_provider = "openai"',
+    "",
+    "[model_providers.deepseek]",
+    'name = "DeepSeek"',
+    "",
+  ].join("\n");
+
+  const result = setDefaultModelProvider(input, "minimax", {
+    model: "MiniMax-M3",
+    contextWindow: 512000,
+  }, {
+    modelCatalogPath: "/tmp/catalog.json",
+  });
+
+  assert.match(result, /^model = "MiniMax-M3"/m);
+  assert.match(result, /^model_provider = "minimax"/m);
+  assert.match(result, /^model_catalog_json = "\/tmp\/catalog\.json"/m);
+  assert.match(result, /\[model_providers\.deepseek\]\nname = "DeepSeek"/);
+});
+
+test("modelCatalogJson creates a Codex model catalog", () => {
+  const registry = {
+    minimax: {
+      label: "MiniMax",
+      model: "MiniMax-M3",
+    },
+  };
+  const result = JSON.parse(modelCatalogJson(["minimax"], registry));
+  assert.equal(result.models[0].slug, "MiniMax-M3");
+  assert.equal(result.models[0].display_name, "MiniMax");
+  assert.equal(result.models[0].visibility, "list");
+});
+
 test("installCodexModels writes config, model configs, and backup", () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "codex-model-kit-test-"));
   const configPath = path.join(home, "config.toml");
@@ -151,4 +189,21 @@ test("installCodexModels writes custom provider model configs", () => {
   assert.equal(result.modelConfigs[0].provider.label, "Relay");
   assert.match(fs.readFileSync(path.join(home, "config.toml"), "utf8"), /\[model_providers\.relay\]/);
   assert.match(fs.readFileSync(path.join(home, "relay.config.toml"), "utf8"), /relay-model/);
+});
+
+test("installCodexModels can set a default provider and model catalog", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "codex-model-kit-default-test-"));
+  const result = installCodexModels({
+    codexHome: home,
+    providers: ["minimax"],
+    setDefault: "minimax",
+    writeModelCatalog: true,
+  });
+
+  const config = fs.readFileSync(path.join(home, "config.toml"), "utf8");
+  assert.match(config, /^model_provider = "minimax"/m);
+  assert.match(config, /^model = "MiniMax-M3"/m);
+  assert.match(config, /^model_catalog_json = /m);
+  assert.equal(result.modelCatalogPath, path.join(home, "codex-model-kit-models.json"));
+  assert.match(fs.readFileSync(result.modelCatalogPath, "utf8"), /MiniMax-M3/);
 });

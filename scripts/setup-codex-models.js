@@ -23,6 +23,8 @@ function printHelp() {
   npm run setup           写入 Codex 多模型配置档
   npm run setup:gui       用 macOS / Windows 弹窗输入 Key
   npm run setup:keys      用终端隐藏输入 Key
+  npm run setup:default -- minimax
+                        将指定模型配置档设为 Codex 当前默认模型
 
 参数：
   --models ${PROVIDER_LIST}
@@ -38,6 +40,16 @@ function printHelp() {
 
   --default-model MODEL
       新配置默认 OpenAI 模型。默认 gpt-5.5。
+
+  --set-default MODEL_CONFIG
+      将指定模型配置档写入主 config.toml 的 model_provider 和 model。
+      这更接近 Codex Desktop 底部模型位置的当前模型效果。
+
+  --write-model-catalog
+      生成 model_catalog_json 文件，并写入主 config.toml。
+
+  --catalog-models minimax,deepseek
+      指定写入模型目录的模型。默认在 --set-default 时只写入当前默认模型。
 
   --dry-run
       只预览计划写入的文件，不真正修改。
@@ -110,6 +122,8 @@ function parseArgs(argv) {
       options.setKeysGui = true;
     } else if (arg === "--restart-codex") {
       options.restartCodex = true;
+    } else if (arg === "--write-model-catalog") {
+      options.writeModelCatalog = true;
     } else if (arg === "--models" || arg === "--providers") {
       options.providers = splitList(argv[++index]);
     } else if (arg.startsWith("--models=")) {
@@ -124,6 +138,18 @@ function parseArgs(argv) {
       options.defaultModel = argv[++index];
     } else if (arg.startsWith("--default-model=")) {
       options.defaultModel = arg.slice("--default-model=".length);
+    } else if (arg === "--set-default") {
+      options.setDefault = argv[++index];
+      options.writeModelCatalog = true;
+    } else if (arg.startsWith("--set-default=")) {
+      options.setDefault = arg.slice("--set-default=".length);
+      options.writeModelCatalog = true;
+    } else if (arg === "--catalog-models") {
+      options.catalogProviders = splitList(argv[++index]);
+      options.writeModelCatalog = true;
+    } else if (arg.startsWith("--catalog-models=")) {
+      options.catalogProviders = splitList(arg.slice("--catalog-models=".length));
+      options.writeModelCatalog = true;
     } else if (arg === "--provider-file") {
       options.providerFiles = [...(options.providerFiles || []), path.resolve(argv[++index])];
     } else if (arg.startsWith("--provider-file=")) {
@@ -389,6 +415,9 @@ async function main() {
     providers: options.providers,
     providerFiles: options.providerFiles,
     defaultModel: options.defaultModel,
+    setDefault: options.setDefault,
+    writeModelCatalog: options.writeModelCatalog,
+    catalogProviders: options.catalogProviders,
     dryRun: options.dryRun,
   });
 
@@ -396,6 +425,8 @@ async function main() {
   console.log(`- Codex 配置目录：${result.codexHome}`);
   console.log(`- 主配置文件：${result.configPath}${result.changedConfig ? "" : "（已经是最新）"}`);
   if (options.providerFiles.length > 0) console.log(`- 自定义配置源：${options.providerFiles.join(", ")}`);
+  if (result.setDefault) console.log(`- 当前默认模型配置档：${result.setDefault}`);
+  if (result.modelCatalogPath) console.log(`- 模型目录文件：${result.modelCatalogPath}`);
   if (result.backupPath) console.log(`- 旧配置备份：${result.backupPath}`);
   for (const item of result.modelConfigs) {
     console.log(`- ${item.provider.label} 模型配置档：${item.path}`);
