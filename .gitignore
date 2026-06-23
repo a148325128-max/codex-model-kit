@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+coverage/
+dist/
+release/
+.DS_Store
+*.bak
+*.bak-*
+*.key
+*.pem
+auth.json
