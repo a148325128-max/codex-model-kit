@@ -185,15 +185,3 @@ npm run setup:dry-run
 node scripts/setup-codex-models.js --help
 node scripts/setup-codex-models.js --list
 ```
-
-## 安全
-
-不要提交：
-
-- `.env`
-- `providers.local.json`
-- 真实 API Key
-- `~/.codex/auth.json`
-- 带真实 Key 的截图
-- 平台后台余额截图
-- 本地日志和缓存
